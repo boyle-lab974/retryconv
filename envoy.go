@@ -21,6 +21,10 @@ type EnvoyRetryPolicy struct {
 	PerTryTimeout string             `json:"per_try_timeout,omitempty"`
 	RetryOn       string             `json:"retry_on"`
 	RetryBackOff  *EnvoyRetryBackOff `json:"retry_back_off,omitempty"`
+
+	// RetriableStatusCodes is only consulted when retry_on contains the
+	// "retriable-status-codes" token, same as in Envoy.
+	RetriableStatusCodes []int `json:"retriable_status_codes,omitempty"`
 }
 
 // ParseEnvoyRetryPolicy reads an Envoy retry policy from JSON. In strict

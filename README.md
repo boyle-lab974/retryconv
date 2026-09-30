@@ -91,7 +91,24 @@ Use `-in` / `-out` to read or write files instead of stdin/stdout.
 | `-in`       | `-`     | input file with an Envoy retry policy (JSON); `-` for stdin  |
 | `-out`      | `-`     | output file for the AWS retry policy (JSON); `-` for stdout  |
 | `-lenient`  | `false` | drop unmappable fields/conditions instead of failing         |
+| `-reverse`  | `false` | read an AWS retry policy and write an Envoy one              |
+
+## reverse direction
+
+With `-reverse` the input is an AWS retry policy and the output is an Envoy
+one. `max_attempts` becomes `num_retries` (minus the initial try), backoff
+delays are written as protobuf durations like `0.025s`, and the status code
+list is emitted as `retry_on: "retriable-status-codes"` plus a
+`retriable_status_codes` array. It does not use `5xx` or `gateway-error`,
+because those would retry on codes the AWS config never listed.
+
+Refused unless `-lenient`: `adaptive` mode, unknown modes, a `max_attempts`
+below 1, and an empty `retryable_status_codes` (the SDK default set, which
+Envoy can't express; lenient substitutes `5xx`).
+
+The forward direction also understands `retriable-status-codes` now, so a
+policy survives a round trip.
 
 ## status
 
-Envoy -> AWS only, for now. See the roadmap for what's next.
+Both directions work. Format auto-detection and gRPC tokens are next.

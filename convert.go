@@ -62,7 +62,7 @@ func EnvoyToAWS(p *EnvoyRetryPolicy, lenient bool) (*AWSRetryPolicy, []string, e
 		warnings = append(warnings, fmt.Sprintf("dropped per_try_timeout %q: not representable in aws retry config", p.PerTryTimeout))
 	}
 
-	codes, codeWarnings, err := retryOnToStatusCodes(p.RetryOn, lenient)
+	codes, codeWarnings, err := retryOnToStatusCodes(p.RetryOn, p.RetriableStatusCodes, lenient)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -82,7 +82,7 @@ func EnvoyToAWS(p *EnvoyRetryPolicy, lenient bool) (*AWSRetryPolicy, []string, e
 	return out, warnings, nil
 }
 
-func retryOnToStatusCodes(retryOn string, lenient bool) ([]int, []string, error) {
+func retryOnToStatusCodes(retryOn string, explicit []int, lenient bool) ([]int, []string, error) {
 	var warnings []string
 	var unknown []string
 	seen := map[int]bool{}
@@ -93,7 +93,11 @@ func retryOnToStatusCodes(retryOn string, lenient bool) ([]int, []string, error)
 		if token == "" {
 			continue
 		}
-		if mapped, ok := statusTokenCodes[token]; ok {
+		mapped, ok := statusTokenCodes[token]
+		if token == "retriable-status-codes" {
+			mapped, ok = explicit, true
+		}
+		if ok {
 			for _, c := range mapped {
 				if !seen[c] {
 					seen[c] = true

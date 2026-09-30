@@ -14,26 +14,36 @@ func main() {
 	inPath := flag.String("in", "-", "input file with an Envoy retry policy in JSON (- for stdin)")
 	outPath := flag.String("out", "-", "output file for the converted AWS retry policy in JSON (- for stdout)")
 	lenient := flag.Bool("lenient", false, "allow lossy or ambiguous conversions (drop what can't be mapped) instead of failing")
+	reverse := flag.Bool("reverse", false, "convert an AWS retry policy to an Envoy one instead")
 	flag.Parse()
 
-	if err := run(*inPath, *outPath, *lenient); err != nil {
+	if err := run(*inPath, *outPath, *lenient, *reverse); err != nil {
 		fmt.Fprintln(os.Stderr, "retryconv:", err)
 		os.Exit(1)
 	}
 }
 
-func run(inPath, outPath string, lenient bool) error {
+func run(inPath, outPath string, lenient, reverse bool) error {
 	data, err := readInput(inPath)
 	if err != nil {
 		return err
 	}
 
-	envoyPolicy, err := ParseEnvoyRetryPolicy(data, lenient)
-	if err != nil {
-		return err
+	var result any
+	var warnings []string
+	if reverse {
+		awsPolicy, perr := ParseAWSRetryPolicy(data, lenient)
+		if perr != nil {
+			return perr
+		}
+		result, warnings, err = AWSToEnvoy(awsPolicy, lenient)
+	} else {
+		envoyPolicy, perr := ParseEnvoyRetryPolicy(data, lenient)
+		if perr != nil {
+			return perr
+		}
+		result, warnings, err = EnvoyToAWS(envoyPolicy, lenient)
 	}
-
-	awsPolicy, warnings, err := EnvoyToAWS(envoyPolicy, lenient)
 	if err != nil {
 		return err
 	}
@@ -41,7 +51,7 @@ func run(inPath, outPath string, lenient bool) error {
 		fmt.Fprintln(os.Stderr, "retryconv: warning:", w)
 	}
 
-	out, err := json.MarshalIndent(awsPolicy, "", "  ")
+	out, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return err
 	}
